@@ -1,6 +1,6 @@
 package com.handy.android.lda.ui.screens
 
-import android.app.Activity
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
@@ -11,8 +11,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.handy.android.lda.utils.prefs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -23,11 +23,10 @@ var isFinishedAlarm = false // закончил работу будильник 
 var timeIsLaunchedAW = false // запущен поток с отображением текущего времени
 
 //форма, открывающаяся при срабатывании будильника
-@Preview(showBackground = true)
 @Composable
 fun AlarmWorked() {
     enableAlarmMS.value = false
-    val activity = (LocalContext.current as? Activity)
+    prefs.enableAlarmPref = false
     val context = LocalContext.current
     val curTime = remember { mutableStateOf("00:00") } // текущее время
 
@@ -62,9 +61,9 @@ fun AlarmWorked() {
             .height(150.dp),
             onClick = {
                 cancelAlarm(context) // отмена ранее установленного будильника
-                isFinishedAlarm = true
-                timeIsLaunchedAW = false
-                activity?.finish() // закрываем activity
+                // посылаем сообщение, что AlarmWorkedActivity нужно закрывать
+                val intent = Intent("finishAlarmWorkedActivity")
+                context.sendBroadcast(intent)
             }
         ) {
             Text(text = "Остановить", style = MaterialTheme.typography.h3)

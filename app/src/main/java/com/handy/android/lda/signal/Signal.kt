@@ -9,13 +9,14 @@ import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import com.handy.android.lda.utils.prefs
 import kotlinx.coroutines.delay
 import java.io.IOException
 import java.util.*
 
 var vibrator: Vibrator? = null
 var player: MediaPlayer? = null
-var ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) // uri мелодии сигнала
+var ringtoneUri = Uri.parse(prefs.ringtoneUriPref) // uri мелодии сигнала
 var signalIsStopped = false // нужно ли в данный момент остановить работу будильника
 
 // воспроизведение самого сигнала

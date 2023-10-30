@@ -11,11 +11,11 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.handy.android.lda.ui.screens.cancelAlarm
 import com.handy.android.lda.ui.screens.enableAlarmMS
-import com.handy.android.lda.ui.screens.notificationId
+import com.handy.android.lda.utils.prefs
 import com.handy.android.lda.workers.AlarmWorker
 
 /**
- * класс, который выполняет действие при срабатывании будильника
+ * класс, который выполняет действие при срабатывании будильника или при остановке будильника из Уведомления
  */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -33,6 +33,7 @@ class AlarmReceiver : BroadcastReceiver() {
             WorkManager.getInstance(context).enqueue(workRequest.build())
         } else if(intent.action.equals("stopAlarm")) { //останавливаем будильник из Notification
             enableAlarmMS.value = false
+            prefs.enableAlarmPref = false
             cancelAlarm(context) // отмена ранее установленного будильника
         }
     }

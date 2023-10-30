@@ -36,19 +36,20 @@ import com.handy.android.lda.R
 import com.handy.android.lda.signal.AlarmReceiver
 import com.handy.android.lda.signal.ringtoneUri
 import com.handy.android.lda.signal.stopSignal
+import com.handy.android.lda.utils.prefs
 import kotlinx.coroutines.*
 import java.util.*
 
-
-lateinit var alarmManager: AlarmManager // активатор действий по определенному расписанию
+var alarmManager: AlarmManager? = null // активатор действий по определенному расписанию
 lateinit var pendingIntent: PendingIntent
 var notificationId = 0 // id уведомления по будильнику
-var enableAlarmMS = mutableStateOf(false) // переменная для принудительного выключения будильника из AlarmWorked
-var signalEnabledS = true // установлен ли сигнал
-var vibrationEnabledS = true // установлен ли вибросигнла
-var amountS = "3" // количество сигналов
-var durationS = "3" // продолжительность сигнала в сек.
-var intervalS = "5" // интервал между сигналами в сек.
+var enableAlarmMS =
+    mutableStateOf(prefs.enableAlarmPref) // переменная для принудительного выключения будильника из AlarmWorked
+var signalEnabledS = prefs.signalEnabledPref // установлен ли сигнал
+var vibrationEnabledS = prefs.vibrationEnabledPref // установлен ли вибросигнла
+var amountS = prefs.amountPref // количество сигналов
+var durationS = prefs.durationPref // продолжительность сигнала в сек.
+var intervalS = prefs.intervalPref // интервал между сигналами в сек.
 private var timeIsLaunched = false // запущен поток с отображением оставшегося до звонка времени или нет
 
 //@Preview(showBackground = true)
@@ -57,11 +58,21 @@ fun Settings(am: AlarmManager) {
     alarmManager = am // активатор действий по определенному расписанию
     val context = LocalContext.current
     val enableAlarm = remember { enableAlarmMS } // включен будильник или нет
+    // инициация pendingIntent
+    if (enableAlarmMS.value == true) {
+        // установление BroadcastReceiver, в котором будут происходить действия в момент срабатывания будильника
+        val intent = Intent(context, AlarmReceiver::class.java)
+        intent.putExtra("notificationId", notificationId)
+        pendingIntent = PendingIntent.getBroadcast(
+            context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
     val visibleRingtones = remember { mutableStateOf(false) } // показывать окно с выбором мелодий или нет
     val visibleAlertDialog =
         remember { mutableStateOf(false) } // показывать AlertDialog с настройкой отображения приложения поверх других окон
-    val hour = remember { mutableStateOf(6) } //установленный час в будильнике
-    val minute = remember { mutableStateOf(30) } //установленная минута в будильнике
+    val hour = remember { mutableStateOf(prefs.hourPref) } //установленный час в будильнике
+    val minute = remember { mutableStateOf(prefs.minutePref) } //установленная минута в будильнике
     val signalEnabled = remember { mutableStateOf(signalEnabledS) } // установлен ли сигнал
     val vibrationEnabled = remember { mutableStateOf(vibrationEnabledS) } // установлен ли вибросигнла
     val amount = remember { mutableStateOf(amountS) } // количество сигналов
@@ -69,7 +80,7 @@ fun Settings(am: AlarmManager) {
     val interval = remember { mutableStateOf(intervalS) } // интервал между сигналами в сек.
     val enableButtonRington = remember { mutableStateOf(true) } // Доступна кнопка с выбором мелодий или нет
     // название мелодии сигнала
-    val ringtoneName = remember { mutableStateOf(RingtoneManager.getRingtone(context, ringtoneUri).getTitle(context)) }
+    val ringtoneName = remember { mutableStateOf(prefs.ringtoneNamePref) }
     val timeTillSignal = remember { mutableStateOf("Сигнал будильника выключен") } // сколько времени до сигнала
 
     // асинхронная функция для заполнения оставшегося времени до звонка будильника
@@ -93,7 +104,9 @@ fun Settings(am: AlarmManager) {
     val timePickerDialog = TimePickerDialog(
         context, { view, _hourOfDay, _minute ->
             hour.value = _hourOfDay
+            prefs.hourPref = _hourOfDay
             minute.value = _minute
+            prefs.minutePref = _minute
             // отмена ранее установленного будильника
             cancelAlarm(context)
             signalEnabledS = signalEnabled.value
@@ -134,6 +147,7 @@ fun Settings(am: AlarmManager) {
             //Включен будильник или нет
             Switch(modifier = Modifier.weight(1f, false), checked = enableAlarm.value, onCheckedChange = {
                 enableAlarm.value = it
+                prefs.enableAlarmPref = it
                 if (enableAlarm.value) {
                     signalEnabledS = signalEnabled.value
                     vibrationEnabledS = vibrationEnabled.value
@@ -169,6 +183,7 @@ fun Settings(am: AlarmManager) {
         OutlinedTextField(modifier = Modifier.onFocusChanged {
             if (!it.isFocused && (duration.value.isEmpty() || duration.value == "0")) {
                 duration.value = "1"
+                prefs.durationPref = "1"
                 durationS = "1"
             }
         },
@@ -179,6 +194,7 @@ fun Settings(am: AlarmManager) {
             onValueChange = {
                 if (it.isEmpty() || it.matches(Regex("^\\d+\$"))) {
                     duration.value = it
+                    prefs.durationPref = it
                     durationS = it
                 }
             })
@@ -186,6 +202,7 @@ fun Settings(am: AlarmManager) {
             .onFocusChanged {
                 if (!it.isFocused && (interval.value.isEmpty() || interval.value == "0")) {
                     interval.value = "1"
+                    prefs.intervalPref = "1"
                     intervalS = "1"
                 }
             }
@@ -197,6 +214,7 @@ fun Settings(am: AlarmManager) {
             onValueChange = {
                 if (it.isEmpty() || it.matches(Regex("^\\d+\$"))) {
                     interval.value = it
+                    prefs.intervalPref = it
                     intervalS = it
                 }
             })
@@ -204,6 +222,7 @@ fun Settings(am: AlarmManager) {
             .onFocusChanged {
                 if (!it.isFocused && (amount.value.isEmpty() || amount.value == "0")) {
                     amount.value = "1"
+                    prefs.amountPref = "1"
                     amountS = "1"
                 }
             }
@@ -215,6 +234,7 @@ fun Settings(am: AlarmManager) {
             onValueChange = {
                 if (it.isEmpty() || it.matches(Regex("^\\d+\$"))) {
                     amount.value = it
+                    prefs.amountPref = it
                     amountS = it
                 }
             })
@@ -232,9 +252,13 @@ fun Settings(am: AlarmManager) {
                     .selectable(selected = !signalEnabled.value, onClick = {
                         if (enableAlarm.value) {
                             signalEnabled.value = !signalEnabled.value
+                            prefs.signalEnabledPref = signalEnabled.value
                             enableButtonRington.value = signalEnabled.value
                             signalEnabledS = signalEnabled.value
-                            if (!signalEnabled.value) vibrationEnabled.value = true
+                            if (!signalEnabled.value) {
+                                vibrationEnabled.value = true
+                                prefs.vibrationEnabledPref = true
+                            }
                         }
                     }), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically
             ) {
@@ -262,9 +286,11 @@ fun Settings(am: AlarmManager) {
                 .selectable(selected = !vibrationEnabled.value, onClick = {
                     if (enableAlarm.value) {
                         vibrationEnabled.value = !vibrationEnabled.value
+                        prefs.vibrationEnabledPref = vibrationEnabled.value
                         vibrationEnabledS = vibrationEnabled.value
                         if (!vibrationEnabled.value) {
                             signalEnabled.value = true
+                            prefs.signalEnabledPref = true
                             enableButtonRington.value = true
                         }
                     }
@@ -276,10 +302,12 @@ fun Settings(am: AlarmManager) {
             Text(text = "Вибрация")
         }
     }
-    // окно с со списком рингтонов
+    // окно со списком рингтонов
     Ringtones(visibleRingtones, setRingtone = { uri ->
         ringtoneUri = uri
         ringtoneName.value = RingtoneManager.getRingtone(context, uri).getTitle(context)
+        prefs.ringtoneNamePref = ringtoneName.value
+        prefs.ringtoneUriPref = ringtoneUri.toString()
     })
     // окна с вопросом о необходимости изменить настройки, чтобы появлялось окно с выключением сигнала даже при заблокированном экране
     SystemAlertWindowDialog(visibleAlertDialog)
@@ -308,27 +336,25 @@ private fun setAlarm(context: Context, hour: Int, minute: Int) {
         context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
     //установление будильника
-    alarmManager.setExactAndAllowWhileIdle(
+    alarmManager?.setExactAndAllowWhileIdle(
         AlarmManager.RTC_WAKEUP, alarmTime.timeInMillis, pendingIntent
     )
     // создание уведомления
-    @SuppressLint("MissingPermission")
-    if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+    @SuppressLint("MissingPermission") if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
         // создание канала для уведомлений
         createNotificationChannel(context)
         // создаем pendingIntent для остановки будильника
         val stopIntent = Intent(context, AlarmReceiver::class.java)
         stopIntent.action = "stopAlarm"
         stopIntent.putExtra("notificationId", notificationId)
-        val stopPendingIntent = PendingIntent.getBroadcast(context, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val stopPendingIntent = PendingIntent.getBroadcast(
+            context, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         // создание самого уведомления
         val notificationBuilder = NotificationCompat.Builder(context, "alarmLucid").setContentTitle("Будильник")
             .setContentText("Установлен на ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}")
-            .setSmallIcon(R.drawable.alarm_on)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setOngoing(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(0, "Остановить", stopPendingIntent)
+            .setSmallIcon(R.drawable.alarm_on).setPriority(NotificationCompat.PRIORITY_HIGH).setOngoing(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC).addAction(0, "Остановить", stopPendingIntent)
 
         with(NotificationManagerCompat.from(context)) {
             /*if (ActivityCompat.checkSelfPermission(
@@ -355,8 +381,22 @@ private fun setAlarm(context: Context, hour: Int, minute: Int) {
 
 // отмена будильника
 fun cancelAlarm(context: Context) {
+    // инициация AlarmManager для кейса, когда отключение звонка происходит из окна отключения будильника
+    if (alarmManager == null) {
+        alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    }
     // отмена будильника
-    alarmManager.cancel(pendingIntent)
+    try {
+        alarmManager?.cancel(pendingIntent)
+    } catch (e: UninitializedPropertyAccessException) {
+        // инициация pendingIntent
+        val intent = Intent(context, AlarmReceiver::class.java)
+        intent.putExtra("notificationId", notificationId)
+        pendingIntent = PendingIntent.getBroadcast(
+            context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        alarmManager?.cancel(pendingIntent)
+    }
     // отменя уведомления
     if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
         val notificationManager = ContextCompat.getSystemService(

@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.Window
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
